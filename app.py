@@ -19,7 +19,7 @@ ist = pytz.timezone("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
 
-# Safe Data Loading with Fixed Synthetic Data Generator
+# Safe Data Loading with All 12 Months Spread
 @st.cache_data
 def load_data():
     csv_file = "googleplaystore.csv"
@@ -31,7 +31,6 @@ def load_data():
         except Exception:
             df = None
 
-    # Fallback to robust synthetic dataset if CSV fails or isn't present
     if df is None or df.empty:
         np.random.seed(42)
         n_samples = 1500
@@ -48,6 +47,12 @@ def load_data():
             "TRAVEL_AND_LOCAL",
             "PRODUCTIVITY",
         ]
+
+        # Spread across 12 full months (Jan to Dec)
+        random_dates = pd.date_range(
+            start="2024-01-01", end="2024-12-31", periods=n_samples
+        )
+
         df = pd.DataFrame({
             "App": [f"App_{i}" for i in range(1, n_samples + 1)],
             "Category": np.random.choice(cats, n_samples),
@@ -58,9 +63,7 @@ def load_data():
                 f"{np.random.uniform(10, 90):.1f}M" for _ in range(n_samples)
             ],
             "Type": np.random.choice(["Free", "Paid"], n_samples),
-            "Last Updated": pd.date_range(
-                start="2024-01-01", periods=n_samples, freq="h"
-            ),
+            "Last Updated": random_dates,
         })
 
     # Cleaning Steps
