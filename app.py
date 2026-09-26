@@ -7,6 +7,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pytz
+from scipy.cluster.hierarchy import leaves_list, link
+from scipy.stats import zscore
 import streamlit as st
 
 st.set_page_config(
@@ -19,7 +21,7 @@ ist = pytz.timezone("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
 
-# Safe Data Loading with All 12 Months Spread
+# Safe Data Loading
 @st.cache_data
 def load_data():
     csv_file = "googleplaystore.csv"
@@ -33,7 +35,7 @@ def load_data():
 
     if df is None or df.empty:
         np.random.seed(42)
-        n_samples = 2000
+        n_samples = 3000
         cats = [
             "GAME",
             "BEAUTY",
@@ -48,6 +50,9 @@ def load_data():
             "PRODUCTIVITY",
             "PHOTOGRAPHY",
             "TOOLS",
+            "FINANCE",
+            "EDUCATION",
+            "FAMILY",
         ]
 
         random_dates = pd.date_range(
@@ -395,7 +400,6 @@ if not is_task4_active:
 else:
     df4 = df_raw.copy()
 
-    # Filters: Rating >= 4.2, Reviews > 1000, Size 20-80 MB, Installs >= 10000
     df4_filtered = df4[
         (df4["Rating"] >= 4.2)
         & (df4["Reviews"] > 1000)
@@ -403,18 +407,13 @@ else:
         & (df4["Size_MB"] <= 80)
         & (df4["Installs"] >= 10000)
     ]
-
-    # App name must contain NO numbers
     df4_filtered = df4_filtered[
         ~df4_filtered["App"].str.contains(r"\d", regex=True)
     ]
-
-    # Categories starting with T, P, or B
     df4_filtered = df4_filtered[
         df4_filtered["Category"].str.upper().str.startswith(("T", "P", "B"))
     ]
 
-    # Category Translations
     trans_map4 = {
         "TRAVEL_AND_LOCAL": "Voyages et transits (Travel & Local)",
         "PRODUCTIVITY": "Productividad (Productivity)",
@@ -424,7 +423,6 @@ else:
         lambda x: trans_map4.get(x, x)
     )
 
-    # Aggregate by Month and Category
     months_order = [
         "Jan",
         "Feb",
@@ -448,7 +446,6 @@ else:
         .sort_values("Month_Num")
     )
 
-    # Complete timeline matrix to handle missing months properly
     unique_cats = monthly_cat["Category_Display"].unique()
     full_grid = pd.MultiIndex.from_product(
         [range(1, 13), unique_cats], names=["Month_Num", "Category_Display"]
@@ -464,14 +461,12 @@ else:
         how="left",
     ).fillna({"Installs": 0})
 
-    # Metric Selection Control
     metric_choice = st.radio(
         "Select Streamgraph Metric:",
         ["Monthly Installs", "Cumulative Installs", "Growth Percentage (%)"],
         horizontal=True,
     )
 
-    # Metric Calculations
     merged_df = merged_df.sort_values(["Category_Display", "Month_Num"])
     merged_df["Cumulative"] = merged_df.groupby("Category_Display")[
         "Installs"
@@ -480,7 +475,6 @@ else:
         merged_df.groupby("Category_Display")["Installs"].pct_change() * 100
     ).fillna(0)
 
-    # Rolling Z-score Anomaly Detection
     def calc_zscore(df_sub):
         rolling_mean = (
             df_sub["MoM_Growth"].rolling(window=3, min_periods=1).mean()
@@ -501,7 +495,6 @@ else:
         merged_df["Z_Score"] > 2.0
     )
 
-    # Plot Selection
     y_col = "Installs"
     if metric_choice == "Cumulative Installs":
         y_col = "Cumulative"
@@ -517,7 +510,6 @@ else:
         markers=True,
     )
 
-    # Highlight Anomalies
     anomalies = merged_df[merged_df["Is_Anomaly"]]
     for _, row in anomalies.iterrows():
         fig4.add_annotation(
@@ -534,3 +526,137 @@ else:
 
     fig4.update_layout(height=600, hovermode="x unified")
     st.plotly_chart(fig4, use_container_width=True)
+
+st.divider()
+
+# ==========================================
+# TASK 5: Clustered Heatmap & Dynamic Ranking (3 PM - 5 PM IST)
+# ==========================================
+st.header("Task 5: Interactive Clustered Heatmap & Category Ranking")
+is_task5_active = 15 <= now_ist.hour < 17
+
+if not is_task5_active:
+    st.info(
+        f"⏳ Task 5 Chart is scheduled to display between 3:00 PM and 5:00 PM"
+        f" IST. (Current IST Time: {now_ist.strftime('%I:%M:%S %p')})"
+    )
+else:
+    df5 = df_raw.copy()
+
+    # Filters: Rating >= 4.0, Size > 10 MB, Installs >= 10000, Reviews > 1000, Month == January
+    df5_filtered = df5[
+        (df5["Rating"] >= 4.0)
+        & (df5["Size_MB"] > 10)
+        & (df5["Installs"] >= 10000)
+        & (df5["Reviews"] > 1000)
+        & (df5["Month"].str.upper().str.startswith("JAN"))
+    ]
+
+    # Exclude app names containing numbers
+    df5_filtered = df5_filtered[
+        ~df5_filtered["App"].str.contains(r"\d", regex=True)
+    ]
+
+    # Aggregations across 6 Metrics for Top 10 Categories
+    top_10_cats = (
+        df5_filtered.groupby("Category")["Installs"]
+        .sum()
+        .nlargest(10)
+        .index.tolist()
+    )
+    df5_top10 = df5_filtered[df5_filtered["Category"].isin(top_10_cats)]
+
+    metric_df = (
+        df5_top10.groupby("Category")
+        .agg(
+            Weighted_Rating=("Rating", "mean"),
+            Total_Reviews=("Reviews", "sum"),
+            Total_Installs=("Installs", "sum"),
+            Average_Size=("Size_MB", "mean"),
+            Engagement_Rate=("Reviews", lambda x: (x.sum() / 100000.0)),
+            Update_Frequency=("Last Updated", "count"),
+        )
+        .reset_index()
+    )
+
+    metrics = [
+        "Weighted_Rating",
+        "Total_Reviews",
+        "Total_Installs",
+        "Average_Size",
+        "Engagement_Rate",
+        "Update_Frequency",
+    ]
+
+    # Normalized Matrix (Z-Score)
+    norm_df = metric_df.copy()
+    for m in metrics:
+        norm_df[m] = zscore(metric_df[m]).fillna(0)
+
+    # Composite Score calculation
+    norm_df["Composite_Score"] = norm_df[metrics].mean(axis=1)
+    norm_df = norm_df.sort_values("Composite_Score", ascending=False)
+
+    # Hierarchical Clustering (Re-ordering rows according to similarity)
+    matrix_data = norm_df[metrics].values
+    if len(matrix_data) > 1:
+        linkage_matrix = link(matrix_data, method="ward")
+        cluster_order = leaves_list(linkage_matrix)
+        norm_df = norm_df.iloc[cluster_order]
+        metric_df = metric_df.iloc[cluster_order]
+
+    # Radio selector for values mode
+    view_mode = st.radio(
+        "Display Values Mode:",
+        ["Normalized (Z-Score)", "Raw Values"],
+        horizontal=True,
+    )
+
+    display_matrix = (
+        norm_df[metrics].values
+        if view_mode == "Normalized (Z-Score)"
+        else metric_df[metrics].values
+    )
+
+    fig5 = go.Figure(
+        data=go.Heatmap(
+            z=display_matrix,
+            x=[m.replace("_", " ") for m in metrics],
+            y=norm_df["Category"],
+            colorscale="RdYlGn",
+            text=np.round(display_matrix, 2),
+            texttemplate="%{text}",
+            colorbar=dict(title="Value"),
+        )
+    )
+
+    # Annotations for Top 3 and Bottom 3 Composite Scores
+    sorted_scores = norm_df.sort_values("Composite_Score", ascending=False)
+    top_3 = sorted_scores.head(3)["Category"].tolist()
+    bottom_3 = sorted_scores.tail(3)["Category"].tolist()
+
+    for cat in norm_df["Category"]:
+        score = norm_df[norm_df["Category"] == cat]["Composite_Score"].values[0]
+        label = ""
+        if cat in top_3:
+            label = f" (Top 3 | Score: {score:.2f})"
+        elif cat in bottom_3:
+            label = f" (Bottom 3 | Score: {score:.2f})"
+
+        if label:
+            fig5.add_annotation(
+                x=len(metrics) - 0.5,
+                y=cat,
+                text=label,
+                showarrow=False,
+                font=dict(color="blue" if cat in top_3 else "darkred", size=10),
+            )
+
+    fig5.update_layout(
+        title="Hierarchical Clustered Heatmap & Composite Score Annotations",
+        xaxis_title="Metrics",
+        yaxis_title="Category",
+        height=600,
+    )
+
+    st.plotly_chart(fig5, use_container_width=True)
