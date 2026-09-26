@@ -33,7 +33,7 @@ def load_data():
 
     if df is None or df.empty:
         np.random.seed(42)
-        n_samples = 1500
+        n_samples = 2000
         cats = [
             "GAME",
             "BEAUTY",
@@ -46,17 +46,18 @@ def load_data():
             "EVENTS",
             "TRAVEL_AND_LOCAL",
             "PRODUCTIVITY",
+            "PHOTOGRAPHY",
+            "TOOLS",
         ]
 
-        # Spread across 12 full months (Jan to Dec)
         random_dates = pd.date_range(
             start="2024-01-01", end="2024-12-31", periods=n_samples
         )
 
         df = pd.DataFrame({
-            "App": [f"App_{i}" for i in range(1, n_samples + 1)],
+            "App": [f"AppAlpha{i}" for i in range(1, n_samples + 1)],
             "Category": np.random.choice(cats, n_samples),
-            "Rating": np.random.uniform(3.0, 5.0, n_samples),
+            "Rating": np.random.uniform(3.5, 5.0, n_samples),
             "Installs": np.random.randint(10000, 5000000, n_samples),
             "Reviews": np.random.randint(100, 100000, n_samples),
             "Size": [
@@ -377,3 +378,159 @@ else:
         )
 
         st.plotly_chart(fig3, use_container_width=True)
+
+st.divider()
+
+# ==========================================
+# TASK 4: Streamgraph with Anomaly Detection (4 PM - 6 PM IST)
+# ==========================================
+st.header("Task 4: Interactive Streamgraph & Anomaly Detection")
+is_task4_active = 16 <= now_ist.hour < 18
+
+if not is_task4_active:
+    st.info(
+        f"⏳ Task 4 Chart is scheduled to display between 4:00 PM and 6:00 PM"
+        f" IST. (Current IST Time: {now_ist.strftime('%I:%M:%S %p')})"
+    )
+else:
+    df4 = df_raw.copy()
+
+    # Filters: Rating >= 4.2, Reviews > 1000, Size 20-80 MB, Installs >= 10000
+    df4_filtered = df4[
+        (df4["Rating"] >= 4.2)
+        & (df4["Reviews"] > 1000)
+        & (df4["Size_MB"] >= 20)
+        & (df4["Size_MB"] <= 80)
+        & (df4["Installs"] >= 10000)
+    ]
+
+    # App name must contain NO numbers
+    df4_filtered = df4_filtered[
+        ~df4_filtered["App"].str.contains(r"\d", regex=True)
+    ]
+
+    # Categories starting with T, P, or B
+    df4_filtered = df4_filtered[
+        df4_filtered["Category"].str.upper().str.startswith(("T", "P", "B"))
+    ]
+
+    # Category Translations
+    trans_map4 = {
+        "TRAVEL_AND_LOCAL": "Voyages et transits (Travel & Local)",
+        "PRODUCTIVITY": "Productividad (Productivity)",
+        "PHOTOGRAPHY": "写真 (Photography)",
+    }
+    df4_filtered["Category_Display"] = df4_filtered["Category"].map(
+        lambda x: trans_map4.get(x, x)
+    )
+
+    # Aggregate by Month and Category
+    months_order = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ]
+    monthly_cat = (
+        df4_filtered.groupby(["Month_Num", "Month", "Category_Display"])[
+            "Installs"
+        ]
+        .sum()
+        .reset_index()
+        .sort_values("Month_Num")
+    )
+
+    # Complete timeline matrix to handle missing months properly
+    unique_cats = monthly_cat["Category_Display"].unique()
+    full_grid = pd.MultiIndex.from_product(
+        [range(1, 13), unique_cats], names=["Month_Num", "Category_Display"]
+    ).to_frame().reset_index(drop=True)
+    full_grid["Month"] = full_grid["Month_Num"].map(
+        lambda x: months_order[x - 1]
+    )
+
+    merged_df = pd.merge(
+        full_grid,
+        monthly_cat,
+        on=["Month_Num", "Month", "Category_Display"],
+        how="left",
+    ).fillna({"Installs": 0})
+
+    # Metric Selection Control
+    metric_choice = st.radio(
+        "Select Streamgraph Metric:",
+        ["Monthly Installs", "Cumulative Installs", "Growth Percentage (%)"],
+        horizontal=True,
+    )
+
+    # Metric Calculations
+    merged_df = merged_df.sort_values(["Category_Display", "Month_Num"])
+    merged_df["Cumulative"] = merged_df.groupby("Category_Display")[
+        "Installs"
+    ].cumsum()
+    merged_df["MoM_Growth"] = (
+        merged_df.groupby("Category_Display")["Installs"].pct_change() * 100
+    ).fillna(0)
+
+    # Rolling Z-score Anomaly Detection
+    def calc_zscore(df_sub):
+        rolling_mean = (
+            df_sub["MoM_Growth"].rolling(window=3, min_periods=1).mean()
+        )
+        rolling_std = (
+            df_sub["MoM_Growth"].rolling(window=3, min_periods=1).std().fillna(1)
+        )
+        df_sub["Z_Score"] = (df_sub["MoM_Growth"] - rolling_mean) / (
+            rolling_std + 1e-5
+        )
+        return df_sub
+
+    merged_df = (
+        merged_df.groupby("Category_Display", group_keys=False)
+        .apply(calc_zscore)
+    )
+    merged_df["Is_Anomaly"] = (merged_df["MoM_Growth"] > 25) & (
+        merged_df["Z_Score"] > 2.0
+    )
+
+    # Plot Selection
+    y_col = "Installs"
+    if metric_choice == "Cumulative Installs":
+        y_col = "Cumulative"
+    elif metric_choice == "Growth Percentage (%)":
+        y_col = "MoM_Growth"
+
+    fig4 = px.area(
+        merged_df,
+        x="Month",
+        y=y_col,
+        color="Category_Display",
+        title=f"Category Streamgraph ({metric_choice}) with Anomaly Detection",
+        markers=True,
+    )
+
+    # Highlight Anomalies
+    anomalies = merged_df[merged_df["Is_Anomaly"]]
+    for _, row in anomalies.iterrows():
+        fig4.add_annotation(
+            x=row["Month"],
+            y=row[y_col],
+            text=f"⚠️ Spike! (+{row['MoM_Growth']:.1f}%)",
+            showarrow=True,
+            arrowhead=2,
+            arrowcolor="red",
+            ax=0,
+            ay=-30,
+            font=dict(color="red", size=10, family="Arial Black"),
+        )
+
+    fig4.update_layout(height=600, hovermode="x unified")
+    st.plotly_chart(fig4, use_container_width=True)
