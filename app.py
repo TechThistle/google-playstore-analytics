@@ -19,27 +19,22 @@ ist = pytz.timezone("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
 
-# Safe Data Loading with Fallback Generator
+# Safe Data Loading with Fixed Synthetic Data Generator
 @st.cache_data
 def load_data():
     csv_file = "googleplaystore.csv"
-    xlsx_file = "googleplaystore.csv.xlsx"
 
     df = None
-    try:
-        if os.path.exists(csv_file):
-            try:
-                df = pd.read_csv(csv_file)
-            except Exception:
-                df = pd.read_excel(csv_file)
-        elif os.path.exists(xlsx_file):
-            df = pd.read_excel(xlsx_file)
-    except Exception:
-        df = None
+    if os.path.exists(csv_file):
+        try:
+            df = pd.read_csv(csv_file)
+        except Exception:
+            df = None
 
-    # Fallback to realistic synthetic dataset if file reading fails
+    # Fallback to robust synthetic dataset if CSV fails or isn't present
     if df is None or df.empty:
         np.random.seed(42)
+        n_samples = 1500
         cats = [
             "GAME",
             "BEAUTY",
@@ -54,15 +49,17 @@ def load_data():
             "PRODUCTIVITY",
         ]
         df = pd.DataFrame({
-            "App": [f"App_{i}" for i in range(1, 1500)],
-            "Category": np.random.choice(cats, 1500),
-            "Rating": np.random.uniform(3.0, 5.0, 1500),
-            "Installs": np.random.randint(10000, 5000000, 1500),
-            "Reviews": np.random.randint(100, 100000, 1500),
-            "Size": [f"{np.random.uniform(10, 90):.1f}M" for _ in range(1500)],
-            "Type": np.random.choice(["Free", "Paid"], 1500),
+            "App": [f"App_{i}" for i in range(1, n_samples + 1)],
+            "Category": np.random.choice(cats, n_samples),
+            "Rating": np.random.uniform(3.0, 5.0, n_samples),
+            "Installs": np.random.randint(10000, 5000000, n_samples),
+            "Reviews": np.random.randint(100, 100000, n_samples),
+            "Size": [
+                f"{np.random.uniform(10, 90):.1f}M" for _ in range(n_samples)
+            ],
+            "Type": np.random.choice(["Free", "Paid"], n_samples),
             "Last Updated": pd.date_range(
-                start="2024-01-01", periods=1500, freq="D"
+                start="2024-01-01", periods=n_samples, freq="h"
             ),
         })
 
