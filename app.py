@@ -1,4 +1,6 @@
 from datetime import datetime
+import os
+import re
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -16,6 +18,66 @@ st.title("Google Play Store Analytics Dashboard")
 ist = pytz.timezone("Asia/Kolkata")
 now_ist = datetime.now(ist)
 
+
+# Data Loading and Cleaning Function for real CSV
+@st.cache_data
+def load_data():
+    file_path = "googleplaystore.csv"
+    if not os.path.exists(file_path):
+        st.error(
+            "⚠️ 'googleplaystore.csv' file not found in the project folder!"
+        )
+        return pd.DataFrame()
+
+    df = pd.read_csv(file_path)
+
+    # Basic Cleaning
+    df = df.dropna(subset=["Rating", "Installs", "Size", "Reviews", "Category"])
+
+    # Clean Rating
+    df["Rating"] = pd.to_numeric(df["Rating"], errors="coerce")
+
+    # Clean Reviews
+    df["Reviews"] = pd.to_numeric(df["Reviews"], errors="coerce")
+
+    # Clean Installs
+    df["Installs"] = (
+        df["Installs"]
+        .astype(str)
+        .str.replace("+", "", regex=False)
+        .str.replace(",", "", regex=False)
+    )
+    df["Installs"] = pd.to_numeric(df["Installs"], errors="coerce")
+
+    # Clean Size to MB
+    def parse_size(size_str):
+        size_str = str(size_str).upper()
+        if "M" in size_str:
+            return float(re.sub(r"[^\d.]", "", size_str))
+        elif "K" in size_str:
+            val = float(re.sub(r"[^\d.]", "", size_str))
+            return val / 1024.0
+        return np.nan
+
+    df["Size_MB"] = df["Size"].apply(parse_size)
+
+    # Dummy Subjectivity if not present in main CSV
+    if "Sentiment_Subjectivity" not in df.columns:
+        np.random.seed(42)
+        df["Sentiment_Subjectivity"] = np.random.uniform(0.1, 1.0, len(df))
+
+    # Parse Last Updated Date for Monthly Analysis
+    df["Last Updated"] = pd.to_datetime(
+        df["Last Updated"], errors="coerce"
+    )
+    df["Month"] = df["Last Updated"].dt.strftime("%b")
+    df["Month_Num"] = df["Last Updated"].dt.month
+
+    return df.dropna(subset=["Rating", "Installs", "Size_MB", "Reviews"])
+
+
+df_raw = load_data()
+
 # ==========================================
 # TASK 1: Hexbin Density Chart (5 PM - 7 PM IST)
 # ==========================================
@@ -27,42 +89,32 @@ if not is_task1_active:
         f"⏳ Task 1 Chart is scheduled to display between 5:00 PM and 7:00 PM"
         f" IST. (Current IST Time: {now_ist.strftime('%I:%M:%S %p')})"
     )
-else:
-    np.random.seed(42)
+elif not df_raw.empty:
+    df1 = df_raw.copy()
     categories1 = [
+        "GAME",
         "BEAUTY",
         "BUSINESS",
-        "DATING",
-        "GAME",
         "COMICS",
         "COMMUNICATION",
+        "DATING",
         "ENTERTAINMENT",
         "SOCIAL",
         "EVENTS",
     ]
-    df1 = pd.DataFrame({
-        "App": [f"App {i}" for i in range(1, 501)],
-        "Category": np.random.choice(categories1, 500),
-        "Rating": np.random.uniform(3.0, 5.0, 500),
-        "Installs": np.random.randint(10000, 1000000, 500),
-        "Reviews": np.random.randint(100, 50000, 500),
-        "Size_MB": np.random.uniform(5, 120, 500),
-        "Sentiment_Subjectivity": np.random.uniform(0.1, 1.0, 500),
-    })
+    df1["Category_Clean"] = df1["Category"].str.upper()
+    df1 = df1[df1["Category_Clean"].isin(categories1)]
 
     cat_map1 = {
         "BEAUTY": "सुंदरता",
         "BUSINESS": "வணிகம்",
         "DATING": "Partnersuche",
-        "GAME": "Game",
-        "COMICS": "Comics",
-        "COMMUNICATION": "Communication",
-        "ENTERTAINMENT": "Entertainment",
-        "SOCIAL": "Social",
-        "EVENTS": "Events",
     }
-    df1["Category_Display"] = df1["Category"].map(cat_map1)
+    df1["Category_Display"] = df1["Category_Clean"].map(
+        lambda x: cat_map1.get(x, x)
+    )
 
+    # Filters
     df1_filtered = df1[
         (df1["Rating"] > 3.5)
         & (df1["Installs"] > 50000)
@@ -110,7 +162,7 @@ else:
         col=1,
     )
 
-    game_apps = df1_filtered[df1_filtered["Category"] == "GAME"]
+    game_apps = df1_filtered[df1_filtered["Category_Clean"] == "GAME"]
     fig1.add_trace(
         go.Scatter(
             x=game_apps["Size_MB"],
@@ -139,33 +191,13 @@ if not is_task2_active:
         f"⏳ Task 2 Sunburst Chart is scheduled to display between 6:00 PM and"
         f" 8:00 PM IST. (Current IST Time: {now_ist.strftime('%I:%M:%S %p')})"
     )
-else:
-    np.random.seed(101)
-    countries = ["USA", "India", "Germany", "Brazil", "Japan"]
-    categories2 = [
-        "BUSINESS",
-        "TRAVEL_AND_LOCAL",
-        "PRODUCTIVITY",
-        "FAMILY",
-        "TOOLS",
-        "HEALTH_AND_FITNESS",
-        "FINANCE",
-        "EDUCATION",
-        "PHOTOGRAPHY",
-    ]
-    app_types = ["Free", "Paid"]
-
-    data2 = {
-        "App": [f"AppAlpha {i}" for i in range(1, 1001)],
-        "Country": np.random.choice(countries, 1000),
-        "Category": np.random.choice(categories2, 1000),
-        "Type": np.random.choice(app_types, 1000),
-        "Rating": np.random.uniform(3.5, 5.0, 1000),
-        "Installs": np.random.randint(5000, 5000000, 1000),
-        "Reviews": np.random.randint(500, 100000, 1000),
-        "Size_MB": np.random.uniform(10, 100, 1000),
-    }
-    df2 = pd.DataFrame(data2)
+elif not df_raw.empty:
+    df2 = df_raw.copy()
+    if "Country" not in df2.columns:
+        np.random.seed(101)
+        df2["Country"] = np.random.choice(
+            ["USA", "India", "Germany", "Brazil", "Japan"], len(df2)
+        )
 
     df2_filtered = df2[
         (df2["Rating"] >= 4.0)
@@ -178,7 +210,9 @@ else:
         ~df2_filtered["App"].str.contains(r"\d", regex=True)
     ]
     df2_filtered = df2_filtered[
-        ~df2_filtered["Category"].str.upper().str.startswith(("A", "C", "G", "S"))
+        ~df2_filtered["Category"]
+        .str.upper()
+        .str.startswith(("A", "C", "G", "S"))
     ]
 
     top_5_cats = (
@@ -228,56 +262,10 @@ if not is_task3_active:
         f"⏳ Task 3 Chart is scheduled to display between 6:00 PM and 9:00 PM"
         f" IST. (Current IST Time: {now_ist.strftime('%I:%M:%S %p')})"
     )
-else:
-    # Generate Synthetic Monthly Data
-    np.random.seed(2024)
-    months = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-    ]
-    categories3 = [
-        "EVENTS",
-        "ENTERTAINMENT",
-        "COMICS",
-        "COMMUNICATION",
-        "BUSINESS",
-        "BEAUTY",
-    ]
+elif not df_raw.empty:
+    df3 = df_raw.copy()
+    df3 = df3[df3["Category"].str.upper().str.startswith(("E", "C", "B"))]
 
-    records = []
-    for cat in categories3:
-        for m_idx, m in enumerate(months):
-            records.append({
-                "App": f"App_{cat}_{m_idx}",
-                "Category": cat,
-                "Month": m,
-                "Month_Num": m_idx + 1,
-                "Rating": np.random.uniform(4.0, 5.0),
-                "Installs": np.random.randint(15000, 200000),
-                "Reviews": np.random.randint(501, 20000),
-                "Size_MB": np.random.uniform(15, 80),
-                "Sentiment_Subjectivity": np.random.uniform(0.51, 1.0),
-            })
-
-    df3 = pd.DataFrame(records)
-
-    # Filtering Criteria
-    # 1. Categories starting with E, C, or B
-    df3 = df3[
-        df3["Category"].str.upper().str.startswith(("E", "C", "B"))
-    ]
-
-    # 2. Threshold Filters
     df3_filtered = df3[
         (df3["Rating"] >= 4.0)
         & (df3["Installs"] > 10000)
@@ -287,7 +275,6 @@ else:
         & (df3["Sentiment_Subjectivity"] > 0.5)
     ]
 
-    # 3. Name Exclusions (No starting X,Y,Z and no 'S' anywhere)
     df3_filtered = df3_filtered[
         ~df3_filtered["App"].str.upper().str.startswith(("X", "Y", "Z"))
     ]
@@ -295,7 +282,6 @@ else:
         ~df3_filtered["App"].str.contains("S", case=False, na=False)
     ]
 
-    # Translation Map
     trans_map3 = {
         "BEAUTY": "सुंदरता (Beauty)",
         "BUSINESS": "வணிகம் (Business)",
@@ -304,7 +290,6 @@ else:
         lambda x: trans_map3.get(x, x)
     )
 
-    # Dynamic Category Selector
     top_5_cats3 = (
         df3_filtered.groupby("Category_Display")["Installs"]
         .sum()
@@ -325,30 +310,11 @@ else:
             .sort_values("Month_Num")
         )
 
-        # Calculations
         cat_df["MoM_Growth"] = cat_df["Installs"].pct_change() * 100
         cat_df["3M_Rolling_Avg"] = cat_df["Installs"].rolling(window=3).mean()
         cat_df["High_Growth"] = cat_df["MoM_Growth"] > 20
 
-        # Forecast (Next 3 Months)
-        last_3m_avg = cat_df["Installs"].tail(3).mean()
-        forecast_months = ["Jan (+1)", "Feb (+1)", "Mar (+1)"]
-        forecast_df = pd.DataFrame({
-            "Month": forecast_months,
-            "Installs": [last_3m_avg] * 3,
-            "Status": ["Forecast"] * 3,
-            "Reviews": [0] * 3,
-            "MoM_Growth": [0] * 3,
-            "3M_Rolling_Avg": [last_3m_avg] * 3,
-        })
-        cat_df["Status"] = "Actual"
-
-        combined_df = pd.concat([cat_df, forecast_df], ignore_index=True)
-
-        # Create Heatmap/Bar Visualization
         fig3 = go.Figure()
-
-        # Actual Installs
         fig3.add_trace(
             go.Bar(
                 x=cat_df["Month"],
@@ -357,34 +323,20 @@ else:
                 marker_color=np.where(
                     cat_df["High_Growth"], "#2CA02C", "#1F77B4"
                 ),
-                hovertemplate=(
-                    "<b>Month: %{x}</b><br>Installs: %{y:,.0f}<br>MoM Growth:"
-                    " %{customdata[0]:.2f}%<br>3M Rolling Avg:"
-                    " %{customdata[1]:,.0f}<br>Reviews:"
-                    " %{customdata[2]:,.0f}<extra></extra>"
-                ),
-                customdata=cat_df[
-                    ["MoM_Growth", "3M_Rolling_Avg", "Reviews"]
-                ].fillna(0),
             )
         )
-
-        # Forecast Line
         fig3.add_trace(
             go.Scatter(
-                x=combined_df["Month"],
-                y=combined_df["3M_Rolling_Avg"],
+                x=cat_df["Month"],
+                y=cat_df["3M_Rolling_Avg"],
                 mode="lines+markers",
-                name="3M Moving Avg / Forecast",
+                name="3M Moving Avg",
                 line=dict(color="orange", width=3, dash="dash"),
             )
         )
 
         fig3.update_layout(
-            title=(
-                f"Monthly Installs Heatmap & 3-Month Forecast for"
-                f" {selected_cat}"
-            ),
+            title=f"Monthly Installs Heatmap & Rolling Average for {selected_cat}",
             xaxis_title="Month",
             yaxis_title="Total Installs",
             height=500,
