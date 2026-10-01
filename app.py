@@ -67,6 +67,14 @@ def load_data():
                 f"{np.random.uniform(10, 90):.1f}M" for _ in range(n_samples)
             ],
             "Type": np.random.choice(["Free", "Paid"], n_samples),
+            "Price": np.random.choice([0.0, 0.99, 2.99, 4.99], n_samples),
+            "Content Rating": np.random.choice(
+                ["Everyone", "Teen", "Mature 17+"], n_samples
+            ),
+            "Android Ver": np.random.choice(
+                ["4.1 and up", "4.4 and up", "5.0 and up", "3.0 and up"],
+                n_samples,
+            ),
             "Last Updated": random_dates,
         })
 
@@ -82,6 +90,15 @@ def load_data():
             .str.replace(",", "", regex=False)
         )
         df["Installs"] = pd.to_numeric(df["Installs"], errors="coerce")
+
+    if "Price" in df.columns:
+        df["Price"] = (
+            df["Price"]
+            .astype(str)
+            .str.replace("$", "", regex=False)
+            .str.replace(",", "", regex=False)
+        )
+        df["Price"] = pd.to_numeric(df["Price"], errors="coerce").fillna(0.0)
 
     def parse_size(size_str):
         size_str = str(size_str).upper()
@@ -513,7 +530,7 @@ else:
         fig4.add_annotation(
             x=row["Month"],
             y=row[y_col],
-            text=f"⚠️ Spike! (+{row['MoM_Growth']:.1f}%)",
+            text=f"⚠️️ Spike! (+{row['MoM_Growth']:.1f}%)",
             showarrow=True,
             arrowhead=2,
             arrowcolor="red",
@@ -583,7 +600,6 @@ else:
         "Update_Frequency",
     ]
 
-    # Pure NumPy Z-score calculation (Zero external dependencies)
     norm_df = metric_df.copy()
     for m in metrics:
         std_val = metric_df[m].std()
@@ -649,3 +665,141 @@ else:
     )
 
     st.plotly_chart(fig5, use_container_width=True)
+
+st.divider()
+
+# ==========================================
+# TASK 6: Radar Chart - Free vs Paid Apps (1 PM - 2 PM IST)
+# ==========================================
+st.header("Task 6: Free vs Paid Apps Comparison Radar Chart")
+is_task6_active = 13 <= now_ist.hour < 14
+
+if not is_task6_active:
+    st.info(
+        f"⏳ Task 6 Radar Chart is scheduled to display between 1:00 PM and 2:00"
+        f" PM IST. (Current IST Time: {now_ist.strftime('%I:%M:%S %p')})"
+    )
+else:
+    df6 = df_raw.copy()
+
+    # Derived Metrics
+    df6["Revenue"] = np.where(
+        df6["Type"] == "Paid", df6["Installs"] * df6["Price"], 0.0
+    )
+    df6["Engagement_Rate"] = (df6["Reviews"] / (df6["Installs"] + 1e-5)) * 100
+
+    # Filters
+    df6_filtered = df6[
+        (df6["Installs"] >= 10000)
+        & (df6["Size_MB"] > 15)
+        & (
+            df6["Content Rating"].str.strip().str.lower()
+            == "everyone".lower()
+        )
+        & (df6["App"].str.len() <= 30)
+    ]
+
+    # Revenue filter > 10,000 for Paid apps
+    df6_filtered = df6_filtered[
+        (df6_filtered["Type"] == "Free") | (df6_filtered["Revenue"] > 10000)
+    ]
+
+    # Android Ver Filter > 4.0
+    def check_android(ver_str):
+        if pd.isna(ver_str):
+            return True
+        nums = re.findall(r"\d+\.\d+", str(ver_str))
+        if nums:
+            return float(nums[0]) >= 4.0
+        return True
+
+    df6_filtered = df6_filtered[df6_filtered["Android Ver"].apply(check_android)]
+
+    # Top 5 Categories by Installs
+    top_5_cats6 = (
+        df6_filtered.groupby("Category")["Installs"]
+        .sum()
+        .nlargest(5)
+        .index.tolist()
+    )
+
+    selected_cat6 = st.selectbox(
+        "Select Category Scope for Radar Comparison:",
+        ["Overall Top 5 Categories"] + top_5_cats6,
+    )
+
+    if selected_cat6 != "Overall Top 5 Categories":
+        radar_df = df6_filtered[df6_filtered["Category"] == selected_cat6]
+    else:
+        radar_df = df6_filtered[df6_filtered["Category"].isin(top_5_cats6)]
+
+    # Aggregate Metrics by Free vs Paid
+    def calc_radar_metrics(sub_df):
+        grouped = sub_df.groupby("Type").apply(
+            lambda x: pd.Series({
+                "Avg Installs": x["Installs"].mean(),
+                "Weighted Rating": (x["Rating"] * x["Reviews"]).sum()
+                / (x["Reviews"].sum() + 1e-5),
+                "Total Reviews": x["Reviews"].sum(),
+                "Avg Size": x["Size_MB"].mean(),
+                "Revenue": x["Revenue"].sum(),
+                "Engagement Rate": x["Engagement_Rate"].mean(),
+            })
+        )
+        return grouped
+
+    radar_agg = calc_radar_metrics(radar_df)
+
+    radar_metrics = [
+        "Avg Installs",
+        "Weighted Rating",
+        "Total Reviews",
+        "Avg Size",
+        "Revenue",
+        "Engagement Rate",
+    ]
+
+    # Percentile-based Normalisation (0 - 100%)
+    norm_radar = radar_agg.copy()
+    for col in radar_metrics:
+        max_val = df6_filtered.groupby("Type")[col].mean().max()
+        norm_radar[col] = (
+            (radar_agg[col] / (max_val + 1e-5)) * 100
+        ).clip(0, 100)
+
+    # Composite Performance Score
+    norm_radar["Composite_Score"] = norm_radar[radar_metrics].mean(axis=1)
+
+    free_score = norm_radar.loc["Free", "Composite_Score"] if "Free" in norm_radar.index else 0
+    paid_score = norm_radar.loc["Paid", "Composite_Score"] if "Paid" in norm_radar.index else 0
+    winner = "Free Apps" if free_score >= paid_score else "Paid Apps"
+
+    fig6 = go.Figure()
+
+    for app_type in ["Free", "Paid"]:
+        if app_type in norm_radar.index:
+            r_vals = norm_radar.loc[app_type, radar_metrics].tolist()
+            r_vals.append(r_vals[0])  # Close radar loop
+            theta_vals = radar_metrics + [radar_metrics[0]]
+
+            fig6.add_trace(
+                go.Scatterpolar(
+                    r=r_vals,
+                    theta=theta_vals,
+                    fill="toself",
+                    name=f"{app_type} Apps",
+                )
+            )
+
+    fig6.update_layout(
+        polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
+        showlegend=True,
+        title=(
+            f"Free vs Paid Apps Radar Comparison ({selected_cat6})<br><b>Winner:"
+            f" {winner}</b> (Free Score: {free_score:.1f} | Paid Score:"
+            f" {paid_score:.1f})"
+        ),
+        height=600,
+    )
+
+    st.plotly_chart(fig6, use_container_width=True)
