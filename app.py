@@ -17,47 +17,87 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Professional Clean CSS
+# Professional Typography & Sleek UI CSS
 st.markdown(
     """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    html, body, [class*="css"]  {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
     /* Metric Cards Styling */
     div[data-testid="stMetric"] {
         background-color: #FFFFFF;
         border: 1px solid #E5E7EB;
-        border-radius: 8px;
-        padding: 12px 16px;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        border-radius: 10px;
+        padding: 16px 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     div[data-testid="stMetricLabel"] {
-        color: #4B5563 !important;
-        font-size: 0.85rem !important;
-        font-weight: 500 !important;
+        color: #374151 !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.01em;
     }
     div[data-testid="stMetricValue"] {
         color: #111827 !important;
-        font-size: 1.6rem !important;
+        font-size: 1.85rem !important;
         font-weight: 700 !important;
     }
 
-    /* Clean Alert Box */
-    .schedule-box {
-        background-color: #FEF3C7;
-        border: 1px solid #FCD34D;
-        border-left: 5px solid #F59E0B;
-        border-radius: 8px;
-        padding: 16px 20px;
-        margin: 15px 0;
-        color: #92400E;
+    /* Professional Schedule Card */
+    .schedule-card-container {
+        background-color: #1E293B;
+        border: 1px solid #334155;
+        border-left: 6px solid #F59E0B;
+        border-radius: 12px;
+        padding: 22px 26px;
+        margin: 20px 0;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
     }
-    .schedule-box h4 {
-        margin: 0 0 6px 0;
-        color: #B45309;
-        font-size: 1.1rem;
+    .schedule-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #F8FAFC;
+        margin-bottom: 12px;
     }
-    .schedule-box p {
-        margin: 4px 0;
-        font-size: 0.95rem;
+    .schedule-card-body {
+        font-size: 1.05rem;
+        line-height: 1.6;
+        color: #CBD5E1;
+        font-weight: 400;
+    }
+    .schedule-card-body strong {
+        color: #F8FAFC;
+        font-weight: 600;
+    }
+    .schedule-badge {
+        background-color: rgba(245, 158, 11, 0.15);
+        color: #FBBF24;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: inline-block;
+        margin-top: 8px;
+    }
+
+    /* Tab Label Styling */
+    button[data-baseweb="tab"] {
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+        color: #4B5563 !important;
+        padding: 12px 20px !important;
+    }
+    button[aria-selected="true"] {
+        color: #2563EB !important;
+        border-bottom-color: #2563EB !important;
     }
     </style>
     """,
@@ -183,8 +223,11 @@ df_raw = load_data()
 
 # Header
 st.title("📊 Google Play Store Analytics Portal")
-st.write(
-    "Real-Time Multilingual Analytics & Time-Gated Category Visualizations"
+st.markdown(
+    "<p style='font-size: 1.15rem; color: #4B5563; font-weight: 500; margin-top:"
+    " -10px; margin-bottom: 20px;'>Real-Time Multilingual Analytics &"
+    " Time-Gated Category Visualizations</p>",
+    unsafe_allow_html=True,
 )
 
 # KPI Summary
@@ -206,7 +249,7 @@ with k4:
         f"{df_raw['Category'].nunique()}" if not df_raw.empty else "0",
     )
 
-st.markdown("---")
+st.markdown("<br>", unsafe_allow_html=True)
 
 # Tabs
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -222,11 +265,18 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 def render_schedule_notice(title, window):
     st.markdown(
         f"""
-        <div class="schedule-box">
-            <h4>⏳ Module Schedule Notice</h4>
-            <p>The <b>{title}</b> visualization is time-gated according to operational policy.</p>
-            <p>• <b>Scheduled Window:</b> {window}</p>
-            <p>• <b>Current Server Time:</b> {now_ist.strftime('%I:%M:%S %p IST')}</p>
+        <div class="schedule-card-container">
+            <div class="schedule-card-header">
+                <span>⏳</span> Module Schedule Notice
+            </div>
+            <div class="schedule-card-body">
+                The <strong>{title}</strong> visualization is currently time-gated according to system operational policy.
+                <br><br>
+                • <strong>Scheduled Availability Window:</strong> {window}
+                <br>
+                • <strong>Current Server IST Clock:</strong> {now_ist.strftime('%I:%M:%S %p IST')}
+            </div>
+            <div class="schedule-badge">Scheduled Offline Status</div>
         </div>
         """,
         unsafe_allow_html=True,
