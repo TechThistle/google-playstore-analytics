@@ -7,8 +7,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pytz
-from scipy.cluster.hierarchy import leaves_list, link
-from scipy.stats import zscore
 import streamlit as st
 
 st.set_page_config(
@@ -543,7 +541,6 @@ if not is_task5_active:
 else:
     df5 = df_raw.copy()
 
-    # Filters: Rating >= 4.0, Size > 10 MB, Installs >= 10000, Reviews > 1000, Month == January
     df5_filtered = df5[
         (df5["Rating"] >= 4.0)
         & (df5["Size_MB"] > 10)
@@ -552,12 +549,10 @@ else:
         & (df5["Month"].str.upper().str.startswith("JAN"))
     ]
 
-    # Exclude app names containing numbers
     df5_filtered = df5_filtered[
         ~df5_filtered["App"].str.contains(r"\d", regex=True)
     ]
 
-    # Aggregations across 6 Metrics for Top 10 Categories
     top_10_cats = (
         df5_filtered.groupby("Category")["Installs"]
         .sum()
@@ -588,24 +583,19 @@ else:
         "Update_Frequency",
     ]
 
-    # Normalized Matrix (Z-Score)
+    # Pure NumPy Z-score calculation (Zero external dependencies)
     norm_df = metric_df.copy()
     for m in metrics:
-        norm_df[m] = zscore(metric_df[m]).fillna(0)
+        std_val = metric_df[m].std()
+        if std_val == 0 or np.isnan(std_val):
+            norm_df[m] = 0.0
+        else:
+            norm_df[m] = (metric_df[m] - metric_df[m].mean()) / std_val
 
-    # Composite Score calculation
     norm_df["Composite_Score"] = norm_df[metrics].mean(axis=1)
     norm_df = norm_df.sort_values("Composite_Score", ascending=False)
+    metric_df = metric_df.loc[norm_df.index]
 
-    # Hierarchical Clustering (Re-ordering rows according to similarity)
-    matrix_data = norm_df[metrics].values
-    if len(matrix_data) > 1:
-        linkage_matrix = link(matrix_data, method="ward")
-        cluster_order = leaves_list(linkage_matrix)
-        norm_df = norm_df.iloc[cluster_order]
-        metric_df = metric_df.iloc[cluster_order]
-
-    # Radio selector for values mode
     view_mode = st.radio(
         "Display Values Mode:",
         ["Normalized (Z-Score)", "Raw Values"],
@@ -630,7 +620,6 @@ else:
         )
     )
 
-    # Annotations for Top 3 and Bottom 3 Composite Scores
     sorted_scores = norm_df.sort_values("Composite_Score", ascending=False)
     top_3 = sorted_scores.head(3)["Category"].tolist()
     bottom_3 = sorted_scores.tail(3)["Category"].tolist()
