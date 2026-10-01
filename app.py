@@ -11,72 +11,53 @@ import streamlit as st
 
 # Page Configuration
 st.set_page_config(
-    page_title="Executive Play Store Analytics Portal",
-    page_icon="⚡",
+    page_title="Google Play Store Analytics Portal",
+    page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# Custom Enterprise Dark CSS
+# Professional Clean CSS
 st.markdown(
     """
     <style>
-    /* Dark Theme Core */
-    .stApp {
-        background-color: #0B0F19;
-        color: #F3F4F6;
-    }
-
-    /* Metric Cards */
+    /* Metric Cards Styling */
     div[data-testid="stMetric"] {
-        background: rgba(30, 41, 59, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 15px 20px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        background-color: #FFFFFF;
+        border: 1px solid #E5E7EB;
+        border-radius: 8px;
+        padding: 12px 16px;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
     }
     div[data-testid="stMetricLabel"] {
-        color: #9CA3AF !important;
+        color: #4B5563 !important;
         font-size: 0.85rem !important;
-        font-weight: 600 !important;
+        font-weight: 500 !important;
     }
     div[data-testid="stMetricValue"] {
-        color: #F9FAFB !important;
-        font-size: 1.8rem !important;
+        color: #111827 !important;
+        font-size: 1.6rem !important;
         font-weight: 700 !important;
     }
 
-    /* Schedule Status Banner */
-    .schedule-notice-card {
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
-        border: 1px solid rgba(245, 158, 11, 0.3);
-        border-left: 6px solid #F59E0B;
-        border-radius: 12px;
-        padding: 24px;
-        margin: 20px 0;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    /* Clean Alert Box */
+    .schedule-box {
+        background-color: #FEF3C7;
+        border: 1px solid #FCD34D;
+        border-left: 5px solid #F59E0B;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 15px 0;
+        color: #92400E;
     }
-    .schedule-notice-card h3 {
-        color: #FBBF24;
-        margin-bottom: 10px;
-        font-size: 1.25rem;
+    .schedule-box h4 {
+        margin: 0 0 6px 0;
+        color: #B45309;
+        font-size: 1.1rem;
     }
-    .schedule-notice-card p {
-        color: #D1D5DB;
-        margin-bottom: 6px;
+    .schedule-box p {
+        margin: 4px 0;
         font-size: 0.95rem;
-    }
-
-    /* Tabs Customization */
-    button[data-baseweb="tab"] {
-        font-size: 0.95rem !important;
-        font-weight: 600 !important;
-        color: #9CA3AF !important;
-        padding: 12px 20px !important;
-    }
-    button[aria-selected="true"] {
-        color: #38BDF8 !important;
-        border-bottom-color: #38BDF8 !important;
     }
     </style>
     """,
@@ -200,51 +181,32 @@ def load_data():
 
 df_raw = load_data()
 
-# Sidebar Info
-st.sidebar.title("⚡ Control Panel")
-st.sidebar.markdown(
-    f"**System Time (IST):**\n`{now_ist.strftime('%Y-%m-%d %I:%M:%S %p')}`"
-)
-st.sidebar.markdown("---")
-st.sidebar.info("Executive Analytics Dashboard v2.0\nAll systems synchronized.")
-
 # Header
-st.title("⚡ Play Store Intelligence Portal")
-st.caption("Executive Market Performance & Real-Time Time-Gated Visuals")
+st.title("📊 Google Play Store Analytics Portal")
+st.write(
+    "Real-Time Multilingual Analytics & Time-Gated Category Visualizations"
+)
 
-# Top KPI Row
-kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-with kpi1:
+# KPI Summary
+k1, k2, k3, k4 = st.columns(4)
+with k1:
+    st.metric("System Clock (IST)", now_ist.strftime("%I:%M %p"))
+with k2:
     st.metric(
-        "Current IST Time",
-        now_ist.strftime("%I:%M %p"),
-        delta="Synced",
+        "Total Portfolio Apps", f"{len(df_raw):,}" if not df_raw.empty else "0"
     )
-with kpi2:
+with k3:
     st.metric(
-        "Total Portfolio Apps",
-        f"{len(df_raw):,}" if not df_raw.empty else "0",
+        "Average Rating",
+        f"{df_raw['Rating'].mean():.2f} ★" if not df_raw.empty else "0.0 ★",
     )
-with kpi3:
+with k4:
     st.metric(
-        "Average Score",
-        (
-            f"{df_raw['Rating'].mean():.2f} ★"
-            if not df_raw.empty
-            else "0.0 ★"
-        ),
-    )
-with kpi4:
-    st.metric(
-        "Active Categories",
-        (
-            f"{df_raw['Category'].nunique()}"
-            if not df_raw.empty
-            else "0"
-        ),
+        "Tracked Categories",
+        f"{df_raw['Category'].nunique()}" if not df_raw.empty else "0",
     )
 
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("---")
 
 # Tabs
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -257,14 +219,13 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 
-# Helper function for professional inactive state
-def render_inactive_schedule(module_title, schedule_window):
+def render_schedule_notice(title, window):
     st.markdown(
         f"""
-        <div class="schedule-notice-card">
-            <h3>⏳ Time-Gated Module Offline</h3>
-            <p>The <b>{module_title}</b> visualization is currently inactive according to system schedule policy.</p>
-            <p>• <b>Available Operating Window:</b> {schedule_window}</p>
+        <div class="schedule-box">
+            <h4>⏳ Module Schedule Notice</h4>
+            <p>The <b>{title}</b> visualization is time-gated according to operational policy.</p>
+            <p>• <b>Scheduled Window:</b> {window}</p>
             <p>• <b>Current Server Time:</b> {now_ist.strftime('%I:%M:%S %p IST')}</p>
         </div>
         """,
@@ -277,7 +238,7 @@ with tab1:
     st.subheader("App Size vs Rating Density Distribution")
     is_active = 17 <= now_ist.hour < 19
     if not is_active:
-        render_inactive_schedule("App Density Module", "05:00 PM – 07:00 PM IST")
+        render_schedule_notice("App Density Module", "05:00 PM – 07:00 PM IST")
     else:
         df1 = df_raw.copy()
         categories1 = [
@@ -326,7 +287,7 @@ with tab1:
         fig1.add_trace(
             go.Histogram(
                 x=df1_filtered["Size_MB"],
-                marker_color="#38BDF8",
+                marker_color="#2563EB",
                 showlegend=False,
             ),
             row=1,
@@ -335,7 +296,7 @@ with tab1:
         fig1.add_trace(
             go.Histogram(
                 y=df1_filtered["Rating"],
-                marker_color="#38BDF8",
+                marker_color="#2563EB",
                 showlegend=False,
             ),
             row=2,
@@ -360,19 +321,14 @@ with tab1:
                 x=game_apps["Size_MB"],
                 y=game_apps["Rating"],
                 mode="markers",
-                marker=dict(color="#EC4899", size=8),
+                marker=dict(color="#DB2777", size=8),
                 name="Game Apps (Pink)",
             ),
             row=2,
             col=1,
         )
 
-        fig1.update_layout(
-            height=580,
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-        )
+        fig1.update_layout(height=550)
         st.plotly_chart(fig1, use_container_width=True)
 
 # TAB 2: Market Hierarchy
@@ -380,7 +336,7 @@ with tab2:
     st.subheader("Global Category & Rating Breakdown")
     is_active = 18 <= now_ist.hour < 20
     if not is_active:
-        render_inactive_schedule(
+        render_schedule_notice(
             "Market Hierarchy Sunburst", "06:00 PM – 08:00 PM IST"
         )
     else:
@@ -440,12 +396,7 @@ with tab2:
             color="Rating",
             color_continuous_scale="RdYlGn",
         )
-        fig2.update_layout(
-            height=580,
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-        )
+        fig2.update_layout(height=550)
         st.plotly_chart(fig2, use_container_width=True)
 
 # TAB 3: Growth Forecast
@@ -453,7 +404,7 @@ with tab3:
     st.subheader("Monthly Installs Trend & Rolling Averages")
     is_active = 18 <= now_ist.hour < 21
     if not is_active:
-        render_inactive_schedule(
+        render_schedule_notice(
             "Growth Forecast Engine", "06:00 PM – 09:00 PM IST"
         )
     else:
@@ -492,8 +443,7 @@ with tab3:
         )
 
         selected_cat = st.selectbox(
-            "Select Target Category:",
-            top_5_cats3 if top_5_cats3 else ["No Data"],
+            "Select Category:", top_5_cats3 if top_5_cats3 else ["No Data"]
         )
 
         if selected_cat != "No Data":
@@ -518,7 +468,7 @@ with tab3:
                     y=cat_df["Installs"],
                     name="Actual Installs",
                     marker_color=np.where(
-                        cat_df["High_Growth"], "#10B981", "#3B82F6"
+                        cat_df["High_Growth"], "#059669", "#2563EB"
                     ),
                 )
             )
@@ -528,17 +478,12 @@ with tab3:
                     y=cat_df["3M_Rolling_Avg"],
                     mode="lines+markers",
                     name="3M Moving Avg",
-                    line=dict(color="#F59E0B", width=3, dash="dash"),
+                    line=dict(color="#D97706", width=3, dash="dash"),
                 )
             )
 
             fig3.update_layout(
-                xaxis_title="Month",
-                yaxis_title="Total Installs",
-                height=520,
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis_title="Month", yaxis_title="Total Installs", height=500
             )
 
             st.plotly_chart(fig3, use_container_width=True)
@@ -548,7 +493,7 @@ with tab4:
     st.subheader("Category Performance Stream & Anomaly Engine")
     is_active = 16 <= now_ist.hour < 18
     if not is_active:
-        render_inactive_schedule(
+        render_schedule_notice(
             "Stream Dynamics & Anomaly View", "04:00 PM – 06:00 PM IST"
         )
     else:
@@ -676,19 +621,13 @@ with tab4:
                 text=f"⚠️ Spike! (+{row['MoM_Growth']:.1f}%)",
                 showarrow=True,
                 arrowhead=2,
-                arrowcolor="#EF4444",
+                arrowcolor="#DC2626",
                 ax=0,
                 ay=-30,
-                font=dict(color="#EF4444", size=10, family="Arial Black"),
+                font=dict(color="#DC2626", size=10, family="Arial Black"),
             )
 
-        fig4.update_layout(
-            height=580,
-            hovermode="x unified",
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-        )
+        fig4.update_layout(height=550, hovermode="x unified")
         st.plotly_chart(fig4, use_container_width=True)
 
 # TAB 5: Matrix Ranking
@@ -696,7 +635,7 @@ with tab5:
     st.subheader("Clustered Metric Matrix & Composite Scoring")
     is_active = 15 <= now_ist.hour < 17
     if not is_active:
-        render_inactive_schedule(
+        render_schedule_notice(
             "Matrix Heatmap & Ranking Engine", "03:00 PM – 05:00 PM IST"
         )
     else:
@@ -799,16 +738,11 @@ with tab5:
                     text=label,
                     showarrow=False,
                     font=dict(
-                        color="#38BDF8" if cat in top_3 else "#F87171", size=10
+                        color="#0284C7" if cat in top_3 else "#DC2626", size=10
                     ),
                 )
 
-        fig5.update_layout(
-            height=580,
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-        )
+        fig5.update_layout(height=550)
         st.plotly_chart(fig5, use_container_width=True)
 
 # TAB 6: Monetization Radar
@@ -816,7 +750,7 @@ with tab6:
     st.subheader("Free vs Paid Apps Performance Vectors")
     is_active = 13 <= now_ist.hour < 14
     if not is_active:
-        render_inactive_schedule(
+        render_schedule_notice(
             "Monetization Benchmark", "01:00 PM – 02:00 PM IST"
         )
     else:
@@ -942,10 +876,7 @@ with tab6:
                 f" {winner}</b> (Free Score: {free_score:.1f} | Paid Score:"
                 f" {paid_score:.1f})"
             ),
-            height=580,
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
+            height=550,
         )
 
         st.plotly_chart(fig6, use_container_width=True)
