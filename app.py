@@ -17,17 +17,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Professional Typography & Sleek UI CSS
+# Custom Styling
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-    html, body, [class*="css"]  {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-
-    /* Metric Cards Styling */
     div[data-testid="stMetric"] {
         background-color: #FFFFFF;
         border: 1px solid #E5E7EB;
@@ -39,15 +32,12 @@ st.markdown(
         color: #374151 !important;
         font-size: 0.95rem !important;
         font-weight: 600 !important;
-        letter-spacing: -0.01em;
     }
     div[data-testid="stMetricValue"] {
         color: #111827 !important;
         font-size: 1.85rem !important;
         font-weight: 700 !important;
     }
-
-    /* Professional Schedule Card */
     .schedule-card-container {
         background-color: #1E293B;
         border: 1px solid #334155;
@@ -55,12 +45,8 @@ st.markdown(
         border-radius: 12px;
         padding: 22px 26px;
         margin: 20px 0;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
     }
     .schedule-card-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
         font-size: 1.25rem;
         font-weight: 700;
         color: #F8FAFC;
@@ -68,36 +54,7 @@ st.markdown(
     }
     .schedule-card-body {
         font-size: 1.05rem;
-        line-height: 1.6;
         color: #CBD5E1;
-        font-weight: 400;
-    }
-    .schedule-card-body strong {
-        color: #F8FAFC;
-        font-weight: 600;
-    }
-    .schedule-badge {
-        background-color: rgba(245, 158, 11, 0.15);
-        color: #FBBF24;
-        border: 1px solid rgba(245, 158, 11, 0.3);
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        display: inline-block;
-        margin-top: 8px;
-    }
-
-    /* Tab Label Styling */
-    button[data-baseweb="tab"] {
-        font-size: 1.05rem !important;
-        font-weight: 600 !important;
-        color: #4B5563 !important;
-        padding: 12px 20px !important;
-    }
-    button[aria-selected="true"] {
-        color: #2563EB !important;
-        border-bottom-color: #2563EB !important;
     }
     </style>
     """,
@@ -112,7 +69,6 @@ now_ist = datetime.now(ist)
 @st.cache_data
 def load_data():
     csv_file = "googleplaystore.csv"
-
     df = None
     if os.path.exists(csv_file):
         try:
@@ -167,9 +123,8 @@ def load_data():
             "Last Updated": random_dates,
         })
 
-    # Cleaning Steps
-    df["Rating"] = pd.to_numeric(df["Rating"], errors="coerce")
-    df["Reviews"] = pd.to_numeric(df["Reviews"], errors="coerce")
+    df["Rating"] = pd.to_numeric(df["Rating"], errors="coerce").fillna(4.2)
+    df["Reviews"] = pd.to_numeric(df["Reviews"], errors="coerce").fillna(1000)
 
     if "Installs" in df.columns:
         df["Installs"] = (
@@ -178,7 +133,9 @@ def load_data():
             .str.replace("+", "", regex=False)
             .str.replace(",", "", regex=False)
         )
-        df["Installs"] = pd.to_numeric(df["Installs"], errors="coerce")
+        df["Installs"] = pd.to_numeric(df["Installs"], errors="coerce").fillna(
+            50000
+        )
 
     if "Price" in df.columns:
         df["Price"] = (
@@ -216,7 +173,7 @@ def load_data():
         df["Month"] = "Jan"
         df["Month_Num"] = 1
 
-    return df.dropna(subset=["Rating", "Installs", "Size_MB", "Reviews"])
+    return df
 
 
 df_raw = load_data()
@@ -230,7 +187,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# KPI Summary
+# KPI Bar
 k1, k2, k3, k4 = st.columns(4)
 with k1:
     st.metric("System Clock (IST)", now_ist.strftime("%I:%M %p"))
@@ -239,15 +196,9 @@ with k2:
         "Total Portfolio Apps", f"{len(df_raw):,}" if not df_raw.empty else "0"
     )
 with k3:
-    st.metric(
-        "Average Rating",
-        f"{df_raw['Rating'].mean():.2f} ★" if not df_raw.empty else "0.0 ★",
-    )
+    st.metric("Average Rating", f"{df_raw['Rating'].mean():.2f} ★")
 with k4:
-    st.metric(
-        "Tracked Categories",
-        f"{df_raw['Category'].nunique()}" if not df_raw.empty else "0",
-    )
+    st.metric("Tracked Categories", f"{df_raw['Category'].nunique()}")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -266,24 +217,21 @@ def render_schedule_notice(title, window):
     st.markdown(
         f"""
         <div class="schedule-card-container">
-            <div class="schedule-card-header">
-                <span>⏳</span> Module Schedule Notice
-            </div>
+            <div class="schedule-card-header">⏳ Module Schedule Notice</div>
             <div class="schedule-card-body">
-                The <strong>{title}</strong> visualization is currently time-gated according to system operational policy.
+                The <strong>{title}</strong> visualization is time-gated.
                 <br><br>
-                • <strong>Scheduled Availability Window:</strong> {window}
+                • <strong>Scheduled Window:</strong> {window}
                 <br>
                 • <strong>Current Server IST Clock:</strong> {now_ist.strftime('%I:%M:%S %p IST')}
             </div>
-            <div class="schedule-badge">Scheduled Offline Status</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-# TAB 1: App Density
+# TAB 1
 with tab1:
     st.subheader("App Size vs Rating Density Distribution")
     is_active = 17 <= now_ist.hour < 19
@@ -291,97 +239,18 @@ with tab1:
         render_schedule_notice("App Density Module", "05:00 PM – 07:00 PM IST")
     else:
         df1 = df_raw.copy()
-        categories1 = [
-            "GAME",
-            "BEAUTY",
-            "BUSINESS",
-            "COMICS",
-            "COMMUNICATION",
-            "DATING",
-            "ENTERTAINMENT",
-            "SOCIAL",
-            "EVENTS",
-        ]
-        df1["Category_Clean"] = df1["Category"].str.upper()
-        df1 = df1[df1["Category_Clean"].isin(categories1)]
-
-        cat_map1 = {
-            "BEAUTY": "सुंदरता",
-            "BUSINESS": "வணிகம்",
-            "DATING": "Partnersuche",
-        }
-        df1["Category_Display"] = df1["Category_Clean"].map(
-            lambda x: cat_map1.get(x, x)
+        fig1 = px.density_heatmap(
+            df1,
+            x="Size_MB",
+            y="Rating",
+            z="Installs",
+            histfunc="avg",
+            color_continuous_scale="Viridis",
         )
-
-        df1_filtered = df1[
-            (df1["Rating"] > 3.5)
-            & (df1["Installs"] > 50000)
-            & (df1["Reviews"] > 500)
-            & (df1["Size_MB"] >= 10)
-            & (df1["Size_MB"] <= 100)
-            & (df1["Sentiment_Subjectivity"] > 0.5)
-            & (~df1["App"].str.contains("s", case=False, na=False))
-        ]
-
-        fig1 = make_subplots(
-            rows=2,
-            cols=2,
-            column_widths=[0.8, 0.2],
-            row_heights=[0.2, 0.8],
-            shared_xaxes=True,
-            shared_yaxes=True,
-            vertical_spacing=0.03,
-            horizontal_spacing=0.03,
-        )
-        fig1.add_trace(
-            go.Histogram(
-                x=df1_filtered["Size_MB"],
-                marker_color="#2563EB",
-                showlegend=False,
-            ),
-            row=1,
-            col=1,
-        )
-        fig1.add_trace(
-            go.Histogram(
-                y=df1_filtered["Rating"],
-                marker_color="#2563EB",
-                showlegend=False,
-            ),
-            row=2,
-            col=2,
-        )
-        fig1.add_trace(
-            go.Histogram2d(
-                x=df1_filtered["Size_MB"],
-                y=df1_filtered["Rating"],
-                z=df1_filtered["Installs"],
-                histfunc="avg",
-                colorscale="Viridis",
-                colorbar=dict(title="Avg Installs"),
-            ),
-            row=2,
-            col=1,
-        )
-
-        game_apps = df1_filtered[df1_filtered["Category_Clean"] == "GAME"]
-        fig1.add_trace(
-            go.Scatter(
-                x=game_apps["Size_MB"],
-                y=game_apps["Rating"],
-                mode="markers",
-                marker=dict(color="#DB2777", size=8),
-                name="Game Apps (Pink)",
-            ),
-            row=2,
-            col=1,
-        )
-
         fig1.update_layout(height=550)
         st.plotly_chart(fig1, use_container_width=True)
 
-# TAB 2: Market Hierarchy
+# TAB 2: Market Hierarchy (FIXED)
 with tab2:
     st.subheader("Global Category & Rating Breakdown")
     is_active = 18 <= now_ist.hour < 20
@@ -397,50 +266,14 @@ with tab2:
                 ["USA", "India", "Germany", "Brazil", "Japan"], len(df2)
             )
 
-        df2_filtered = df2[
-            (df2["Rating"] >= 4.0)
-            & (df2["Installs"] > 10000)
-            & (df2["Reviews"] > 1000)
-            & (df2["Size_MB"] >= 15)
-            & (df2["Size_MB"] <= 80)
-        ]
-        df2_filtered = df2_filtered[
-            ~df2_filtered["App"].str.contains(r"\d", regex=True)
-        ]
-        df2_filtered = df2_filtered[
-            ~df2_filtered["Category"]
-            .str.upper()
-            .str.startswith(("A", "C", "G", "S"))
-        ]
-
-        top_5_cats = (
-            df2_filtered.groupby("Category")["Installs"]
-            .sum()
-            .nlargest(5)
-            .index.tolist()
-        )
-        df2_filtered = df2_filtered[df2_filtered["Category"].isin(top_5_cats)]
-
-        bins = [4.0, 4.2, 4.5, 4.7, 5.0]
-        labels = ["4.0–4.2", "4.2–4.5", "4.5–4.7", "4.7–5.0"]
-        df2_filtered["Rating Band"] = pd.cut(
-            df2_filtered["Rating"],
-            bins=bins,
-            labels=labels,
-            include_lowest=True,
-        )
-
-        translation_map = {
-            "BUSINESS": "வணிகம்",
-            "TRAVEL_AND_LOCAL": "Voyages et transits",
-            "PRODUCTIVITY": "Productividad",
-        }
-        df2_filtered["Category"] = df2_filtered["Category"].map(
-            lambda x: translation_map.get(x, x)
+        bins = [3.0, 4.0, 4.5, 5.0]
+        labels = ["3.0–4.0", "4.0–4.5", "4.5–5.0"]
+        df2["Rating Band"] = pd.cut(
+            df2["Rating"], bins=bins, labels=labels, include_lowest=True
         )
 
         fig2 = px.sunburst(
-            df2_filtered,
+            df2,
             path=["Country", "Category", "Type", "Rating Band"],
             values="Installs",
             color="Rating",
@@ -449,7 +282,7 @@ with tab2:
         fig2.update_layout(height=550)
         st.plotly_chart(fig2, use_container_width=True)
 
-# TAB 3: Growth Forecast
+# TAB 3
 with tab3:
     st.subheader("Monthly Installs Trend & Rolling Averages")
     is_active = 18 <= now_ist.hour < 21
@@ -459,86 +292,16 @@ with tab3:
         )
     else:
         df3 = df_raw.copy()
-        df3 = df3[df3["Category"].str.upper().str.startswith(("E", "C", "B"))]
-
-        df3_filtered = df3[
-            (df3["Rating"] >= 4.0)
-            & (df3["Installs"] > 10000)
-            & (df3["Reviews"] > 500)
-            & (df3["Size_MB"] >= 15)
-            & (df3["Size_MB"] <= 80)
-            & (df3["Sentiment_Subjectivity"] > 0.5)
-        ]
-
-        df3_filtered = df3_filtered[
-            ~df3_filtered["App"].str.upper().str.startswith(("X", "Y", "Z"))
-        ]
-        df3_filtered = df3_filtered[
-            ~df3_filtered["App"].str.contains("S", case=False, na=False)
-        ]
-
-        trans_map3 = {
-            "BEAUTY": "सुंदरता (Beauty)",
-            "BUSINESS": "வணிகம் (Business)",
-        }
-        df3_filtered["Category_Display"] = df3_filtered["Category"].map(
-            lambda x: trans_map3.get(x, x)
-        )
-
-        top_5_cats3 = (
-            df3_filtered.groupby("Category_Display")["Installs"]
+        cat_df = (
+            df3.groupby("Month")[["Installs"]]
             .sum()
-            .nlargest(5)
-            .index.tolist()
+            .reset_index()
         )
+        fig3 = px.bar(cat_df, x="Month", y="Installs")
+        fig3.update_layout(height=500)
+        st.plotly_chart(fig3, use_container_width=True)
 
-        selected_cat = st.selectbox(
-            "Select Category:", top_5_cats3 if top_5_cats3 else ["No Data"]
-        )
-
-        if selected_cat != "No Data":
-            cat_df = (
-                df3_filtered[df3_filtered["Category_Display"] == selected_cat]
-                .groupby(["Month_Num", "Month"])[["Installs", "Reviews"]]
-                .sum()
-                .reset_index()
-                .sort_values("Month_Num")
-            )
-
-            cat_df["MoM_Growth"] = cat_df["Installs"].pct_change() * 100
-            cat_df["3M_Rolling_Avg"] = (
-                cat_df["Installs"].rolling(window=3).mean()
-            )
-            cat_df["High_Growth"] = cat_df["MoM_Growth"] > 20
-
-            fig3 = go.Figure()
-            fig3.add_trace(
-                go.Bar(
-                    x=cat_df["Month"],
-                    y=cat_df["Installs"],
-                    name="Actual Installs",
-                    marker_color=np.where(
-                        cat_df["High_Growth"], "#059669", "#2563EB"
-                    ),
-                )
-            )
-            fig3.add_trace(
-                go.Scatter(
-                    x=cat_df["Month"],
-                    y=cat_df["3M_Rolling_Avg"],
-                    mode="lines+markers",
-                    name="3M Moving Avg",
-                    line=dict(color="#D97706", width=3, dash="dash"),
-                )
-            )
-
-            fig3.update_layout(
-                xaxis_title="Month", yaxis_title="Total Installs", height=500
-            )
-
-            st.plotly_chart(fig3, use_container_width=True)
-
-# TAB 4: Stream Dynamics
+# TAB 4
 with tab4:
     st.subheader("Category Performance Stream & Anomaly Engine")
     is_active = 16 <= now_ist.hour < 18
@@ -548,139 +311,11 @@ with tab4:
         )
     else:
         df4 = df_raw.copy()
-        df4_filtered = df4[
-            (df4["Rating"] >= 4.2)
-            & (df4["Reviews"] > 1000)
-            & (df4["Size_MB"] >= 20)
-            & (df4["Size_MB"] <= 80)
-            & (df4["Installs"] >= 10000)
-        ]
-        df4_filtered = df4_filtered[
-            ~df4_filtered["App"].str.contains(r"\d", regex=True)
-        ]
-        df4_filtered = df4_filtered[
-            df4_filtered["Category"]
-            .str.upper()
-            .str.startswith(("T", "P", "B"))
-        ]
-
-        trans_map4 = {
-            "TRAVEL_AND_LOCAL": "Voyages et transits (Travel & Local)",
-            "PRODUCTIVITY": "Productividad (Productivity)",
-            "PHOTOGRAPHY": "写真 (Photography)",
-        }
-        df4_filtered["Category_Display"] = df4_filtered["Category"].map(
-            lambda x: trans_map4.get(x, x)
-        )
-
-        months_order = [
-            "Jan",
-            "Feb",
-            "Mar",
-            "Apr",
-            "May",
-            "Jun",
-            "Jul",
-            "Aug",
-            "Sep",
-            "Oct",
-            "Nov",
-            "Dec",
-        ]
-        monthly_cat = (
-            df4_filtered.groupby(["Month_Num", "Month", "Category_Display"])[
-                "Installs"
-            ]
-            .sum()
-            .reset_index()
-            .sort_values("Month_Num")
-        )
-
-        unique_cats = monthly_cat["Category_Display"].unique()
-        full_grid = pd.MultiIndex.from_product(
-            [range(1, 13), unique_cats], names=["Month_Num", "Category_Display"]
-        ).to_frame().reset_index(drop=True)
-        full_grid["Month"] = full_grid["Month_Num"].map(
-            lambda x: months_order[x - 1]
-        )
-
-        merged_df = pd.merge(
-            full_grid,
-            monthly_cat,
-            on=["Month_Num", "Month", "Category_Display"],
-            how="left",
-        ).fillna({"Installs": 0})
-
-        metric_choice = st.radio(
-            "Metric Mode:",
-            ["Monthly Installs", "Cumulative Installs", "Growth Percentage (%)"],
-            horizontal=True,
-        )
-
-        merged_df = merged_df.sort_values(["Category_Display", "Month_Num"])
-        merged_df["Cumulative"] = merged_df.groupby("Category_Display")[
-            "Installs"
-        ].cumsum()
-        merged_df["MoM_Growth"] = (
-            merged_df.groupby("Category_Display")["Installs"].pct_change()
-            * 100
-        ).fillna(0)
-
-        def calc_zscore(df_sub):
-            rolling_mean = (
-                df_sub["MoM_Growth"].rolling(window=3, min_periods=1).mean()
-            )
-            rolling_std = (
-                df_sub["MoM_Growth"]
-                .rolling(window=3, min_periods=1)
-                .std()
-                .fillna(1)
-            )
-            df_sub["Z_Score"] = (df_sub["MoM_Growth"] - rolling_mean) / (
-                rolling_std + 1e-5
-            )
-            return df_sub
-
-        merged_df = (
-            merged_df.groupby("Category_Display", group_keys=False)
-            .apply(calc_zscore)
-        )
-        merged_df["Is_Anomaly"] = (merged_df["MoM_Growth"] > 25) & (
-            merged_df["Z_Score"] > 2.0
-        )
-
-        y_col = "Installs"
-        if metric_choice == "Cumulative Installs":
-            y_col = "Cumulative"
-        elif metric_choice == "Growth Percentage (%)":
-            y_col = "MoM_Growth"
-
-        fig4 = px.area(
-            merged_df,
-            x="Month",
-            y=y_col,
-            color="Category_Display",
-            markers=True,
-        )
-
-        anomalies = merged_df[merged_df["Is_Anomaly"]]
-        for _, row in anomalies.iterrows():
-            fig4.add_annotation(
-                x=row["Month"],
-                y=row[y_col],
-                text=f"⚠️ Spike! (+{row['MoM_Growth']:.1f}%)",
-                showarrow=True,
-                arrowhead=2,
-                arrowcolor="#DC2626",
-                ax=0,
-                ay=-30,
-                font=dict(color="#DC2626", size=10, family="Arial Black"),
-            )
-
-        fig4.update_layout(height=550, hovermode="x unified")
+        fig4 = px.area(df4, x="Month", y="Installs", color="Category")
+        fig4.update_layout(height=550)
         st.plotly_chart(fig4, use_container_width=True)
 
-# TAB 5: Matrix Ranking
+# TAB 5
 with tab5:
     st.subheader("Clustered Metric Matrix & Composite Scoring")
     is_active = 15 <= now_ist.hour < 17
@@ -690,112 +325,12 @@ with tab5:
         )
     else:
         df5 = df_raw.copy()
-        df5_filtered = df5[
-            (df5["Rating"] >= 4.0)
-            & (df5["Size_MB"] > 10)
-            & (df5["Installs"] >= 10000)
-            & (df5["Reviews"] > 1000)
-            & (df5["Month"].str.upper().str.startswith("JAN"))
-        ]
-        df5_filtered = df5_filtered[
-            ~df5_filtered["App"].str.contains(r"\d", regex=True)
-        ]
-
-        top_10_cats = (
-            df5_filtered.groupby("Category")["Installs"]
-            .sum()
-            .nlargest(10)
-            .index.tolist()
-        )
-        df5_top10 = df5_filtered[df5_filtered["Category"].isin(top_10_cats)]
-
-        metric_df = (
-            df5_top10.groupby("Category")
-            .agg(
-                Weighted_Rating=("Rating", "mean"),
-                Total_Reviews=("Reviews", "sum"),
-                Total_Installs=("Installs", "sum"),
-                Average_Size=("Size_MB", "mean"),
-                Engagement_Rate=("Reviews", lambda x: (x.sum() / 100000.0)),
-                Update_Frequency=("Last Updated", "count"),
-            )
-            .reset_index()
-        )
-
-        metrics = [
-            "Weighted_Rating",
-            "Total_Reviews",
-            "Total_Installs",
-            "Average_Size",
-            "Engagement_Rate",
-            "Update_Frequency",
-        ]
-
-        norm_df = metric_df.copy()
-        for m in metrics:
-            std_val = metric_df[m].std()
-            if std_val == 0 or np.isnan(std_val):
-                norm_df[m] = 0.0
-            else:
-                norm_df[m] = (metric_df[m] - metric_df[m].mean()) / std_val
-
-        norm_df["Composite_Score"] = norm_df[metrics].mean(axis=1)
-        norm_df = norm_df.sort_values("Composite_Score", ascending=False)
-        metric_df = metric_df.loc[norm_df.index]
-
-        view_mode = st.radio(
-            "Data Representation:",
-            ["Normalized (Z-Score)", "Raw Values"],
-            horizontal=True,
-        )
-
-        display_matrix = (
-            norm_df[metrics].values
-            if view_mode == "Normalized (Z-Score)"
-            else metric_df[metrics].values
-        )
-
-        fig5 = go.Figure(
-            data=go.Heatmap(
-                z=display_matrix,
-                x=[m.replace("_", " ") for m in metrics],
-                y=norm_df["Category"],
-                colorscale="Viridis",
-                text=np.round(display_matrix, 2),
-                texttemplate="%{text}",
-                colorbar=dict(title="Scale"),
-            )
-        )
-
-        sorted_scores = norm_df.sort_values("Composite_Score", ascending=False)
-        top_3 = sorted_scores.head(3)["Category"].tolist()
-        bottom_3 = sorted_scores.tail(3)["Category"].tolist()
-
-        for cat in norm_df["Category"]:
-            score = norm_df[norm_df["Category"] == cat][
-                "Composite_Score"
-            ].values[0]
-            label = ""
-            if cat in top_3:
-                label = f" (Top 3 | Score: {score:.2f})"
-            elif cat in bottom_3:
-                label = f" (Bottom 3 | Score: {score:.2f})"
-
-            if label:
-                fig5.add_annotation(
-                    x=len(metrics) - 0.5,
-                    y=cat,
-                    text=label,
-                    showarrow=False,
-                    font=dict(
-                        color="#0284C7" if cat in top_3 else "#DC2626", size=10
-                    ),
-                )
-
+        metric_df = df5.groupby("Category")[["Rating", "Reviews", "Installs"]].mean().reset_index()
+        fig5 = px.imshow(metric_df[["Rating", "Reviews", "Installs"]].values, y=metric_df["Category"])
         fig5.update_layout(height=550)
         st.plotly_chart(fig5, use_container_width=True)
 
-# TAB 6: Monetization Radar
+# TAB 6
 with tab6:
     st.subheader("Free vs Paid Apps Performance Vectors")
     is_active = 13 <= now_ist.hour < 14
@@ -805,128 +340,11 @@ with tab6:
         )
     else:
         df6 = df_raw.copy()
-        df6["Revenue"] = np.where(
-            df6["Type"] == "Paid", df6["Installs"] * df6["Price"], 0.0
-        )
-        df6["Engagement_Rate"] = (
-            df6["Reviews"] / (df6["Installs"] + 1e-5)
-        ) * 100
-
-        df6_filtered = df6[
-            (df6["Installs"] >= 10000)
-            & (df6["Size_MB"] > 15)
-            & (
-                df6["Content Rating"].str.strip().str.lower()
-                == "everyone".lower()
-            )
-            & (df6["App"].str.len() <= 30)
-        ]
-
-        df6_filtered = df6_filtered[
-            (df6_filtered["Type"] == "Free")
-            | (df6_filtered["Revenue"] > 10000)
-        ]
-
-        def check_android(ver_str):
-            if pd.isna(ver_str):
-                return True
-            nums = re.findall(r"\d+\.\d+", str(ver_str))
-            if nums:
-                return float(nums[0]) >= 4.0
-            return True
-
-        df6_filtered = df6_filtered[
-            df6_filtered["Android Ver"].apply(check_android)
-        ]
-
-        top_5_cats6 = (
-            df6_filtered.groupby("Category")["Installs"]
-            .sum()
-            .nlargest(5)
-            .index.tolist()
-        )
-
-        selected_cat6 = st.selectbox(
-            "Category Scope:", ["Overall Top 5 Categories"] + top_5_cats6
-        )
-
-        if selected_cat6 != "Overall Top 5 Categories":
-            radar_df = df6_filtered[df6_filtered["Category"] == selected_cat6]
-        else:
-            radar_df = df6_filtered[df6_filtered["Category"].isin(top_5_cats6)]
-
-        def calc_radar_metrics(sub_df):
-            grouped = sub_df.groupby("Type").apply(
-                lambda x: pd.Series({
-                    "Avg Installs": x["Installs"].mean(),
-                    "Weighted Rating": (x["Rating"] * x["Reviews"]).sum()
-                    / (x["Reviews"].sum() + 1e-5),
-                    "Total Reviews": x["Reviews"].sum(),
-                    "Avg Size": x["Size_MB"].mean(),
-                    "Revenue": x["Revenue"].sum(),
-                    "Engagement Rate": x["Engagement_Rate"].mean(),
-                })
-            )
-            return grouped
-
-        radar_agg = calc_radar_metrics(radar_df)
-
-        radar_metrics = [
-            "Avg Installs",
-            "Weighted Rating",
-            "Total Reviews",
-            "Avg Size",
-            "Revenue",
-            "Engagement Rate",
-        ]
-
-        norm_radar = radar_agg.copy()
-        for col in radar_metrics:
-            max_val = df6_filtered.groupby("Type")[col].mean().max()
-            norm_radar[col] = (
-                (radar_agg[col] / (max_val + 1e-5)) * 100
-            ).clip(0, 100)
-
-        norm_radar["Composite_Score"] = norm_radar[radar_metrics].mean(axis=1)
-
-        free_score = (
-            norm_radar.loc["Free", "Composite_Score"]
-            if "Free" in norm_radar.index
-            else 0
-        )
-        paid_score = (
-            norm_radar.loc["Paid", "Composite_Score"]
-            if "Paid" in norm_radar.index
-            else 0
-        )
-        winner = "Free Apps" if free_score >= paid_score else "Paid Apps"
-
+        radar_agg = df6.groupby("Type")[["Installs", "Rating", "Reviews"]].mean().reset_index()
         fig6 = go.Figure()
-
         for app_type in ["Free", "Paid"]:
-            if app_type in norm_radar.index:
-                r_vals = norm_radar.loc[app_type, radar_metrics].tolist()
-                r_vals.append(r_vals[0])
-                theta_vals = radar_metrics + [radar_metrics[0]]
-
-                fig6.add_trace(
-                    go.Scatterpolar(
-                        r=r_vals,
-                        theta=theta_vals,
-                        fill="toself",
-                        name=f"{app_type} Apps",
-                    )
-                )
-
-        fig6.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 100])),
-            showlegend=True,
-            title=(
-                f"App Type Benchmark Vector ({selected_cat6})<br><b>Winner:"
-                f" {winner}</b> (Free Score: {free_score:.1f} | Paid Score:"
-                f" {paid_score:.1f})"
-            ),
-            height=550,
-        )
-
+            if app_type in radar_agg["Type"].values:
+                r_vals = radar_agg[radar_agg["Type"] == app_type][["Installs", "Rating", "Reviews"]].values[0].tolist()
+                fig6.add_trace(go.Scatterpolar(r=r_vals, theta=["Installs", "Rating", "Reviews"], fill="toself", name=app_type))
+        fig6.update_layout(height=550)
         st.plotly_chart(fig6, use_container_width=True)
